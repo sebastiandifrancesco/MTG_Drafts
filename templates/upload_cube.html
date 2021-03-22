@@ -2,6 +2,28 @@
 {% block title %}Upload cube below {% endblock %}
 
 {% block content %}
-<p>Upload cube below</p>
+
+{% if message  %}
+    <div class="alert alert-secondary" role="alert">
+        <p>{{ message }}</p>
+    </div>
+{% endif %}
+
+<form action="" method="post">
+    <div class="form-group">
+        <label for="Cubename">Cube name</label>
+        <input name="cubename" class="form-control" id="inputCubeName" aria-describedby="emailHelp" placeholder="Enter full name">
+        <small id="cubeName" class="form-text text-muted">Please enter your cube name</small>
+    <form method=post enctype=multipart/form-data>
+        <input type=file name=file>
+        <input type=submit value=Upload>
+      </form>  
+
+  <button type="submit" class="btn btn-primary">Submit</button>
+
+
+</form>
+
+Data is {{ data }}  
 
 {% endblock %}

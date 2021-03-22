@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Upload cube below {% endblock %}
+
+{% block content %}
+
+{% if message  %}
+    <div class="alert alert-secondary" role="alert">
+        <p>{{ message }}</p>
+    </div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+<div class="form-group">
+    <label for="Cubename">Cube name</label>
+    <input name="cubename" class="form-control" id="inputCubeName" aria-describedby="cubeNameHelp" placeholder="Please enter your cube name">
+</div>
+    <input type="file" name="file">
+    <input type="submit" value="Upload">
+  </form> 
+
+Complete data: {{ data }}
+
+{% endblock %}

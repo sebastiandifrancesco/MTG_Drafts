@@ -1,18 +1,43 @@
 from flask import Flask, render_template, request, url_for, redirect, session
 import pymongo
 import bcrypt
+import pandas as pd
+import requests  
+from bs4 import BeautifulSoup
+import pandas as pd
+import selenium
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+import requests
+import pymongo
+import os
+
+# chrome_options = webdriver.ChromeOptions()
+# chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
+# chrome_options.add_argument("--headless")
+# chrome_options.add_argument("--disable-dev-shm-usage")
+# chrome_options.add_argument("--no-sandbox")
+# driver = webdriver.Chrome(executable_path=os.environ.get("CHROMEDRIVER_PATH"), chrome_options=chrome_options)
+
 #set app as a Flask instance 
 app = Flask(__name__)
+# app.config.update(
+#     GOOGLE_CHROME_BIN = 
+#     CHROMEDRIVER_PATH = "/"
+# )
 #encryption relies on secret keys so they could be run
 app.secret_key = "testing"
 #connoct to your Mongo DB database
-client = pymongo.MongoClient("mongodb://localhost:27017")
+client = pymongo.MongoClient("mongodb+srv://sebastiandifrancesco:badass88@cluster0.gnjhr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 
 #get the database name
-db = client.mtg_cube
+db = client.mtg_drafts
 #get the particular collection that contains the data
 records = db.user_records
-cubes = db.cubes
+
+def getdata(url):  
+    r = requests.get(url)  
+    return r.text
 
 #assign URLs to have a particular route 
 @app.route("/", methods=['post', 'get'])
@@ -42,7 +67,7 @@ def index():
             #hash the password and encode it
             hashed = bcrypt.hashpw(password2.encode('utf-8'), bcrypt.gensalt())
             #assing them in a dictionary in key value pairs
-            user_input = {'name': user, 'email': email, 'password': hashed}
+            user_input = {'name': user, 'email': email, 'password': hashed, 'Cubes':[], 'Drafts':[]}
             #insert it in the record collection
             records.insert_one(user_input)
             
@@ -100,12 +125,88 @@ def logout():
     else:
         return render_template('index.html')
 
-@app.route('/upload_cube')
-def upload_cube():
-    if "email" in session:
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST' and "email" in session:
+        print('Hello')
         email = session["email"]
-        return render_template('upload_cube.html', email=email)
+        cube_name = request.form.get("cubename")
+        owners_email = email
+        df = pd.read_csv(request.files.get('file'))
+        print(df.head())
+        # Tests for if file input was saved correctly to the df
+        # return render_template('upload.html', data=cube_name)
 
+        # Initialize PyMongo to work with MongoDBs
+        conn = 'mongodb+srv://sebastiandifrancesco:badass88@cluster0.gnjhr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority'
+        client = pymongo.MongoClient(conn)
+
+        # Define database and collection
+        db = client.mtg_drafts
+        collection = db.user_records
+
+        # Read in DF and create two new dataframed one holding the card names and one holding the which set each card belongs to
+        df_name = df[["Name"]]
+        df_set = df["Set"].tolist()
+
+        # Fill mtg_cards with names and sets
+        mtg_cards = {}
+        mtg_cards_not_captured = {}
+        for card in df_name["Name"]:
+            mtg_cards[card] = []
+        count = 0
+        for card in mtg_cards:
+            mtg_cards[card].append({'Set' : df_set[count]})
+            count += 1
+
+        # Web Scraping    
+        for card in mtg_cards:
+            try:
+                # Navigates to the cards scryfall page using the Name and Set Name (must be identical to scryfall)
+                driver = webdriver.Chrome()
+                driver.get("https://scryfall.com/advanced")
+                search_box = driver.find_element_by_name("name")
+                search_box.send_keys(str(card))
+                search_box = driver.find_element_by_name("name")
+                set_box = driver.find_element_by_xpath("/html/body/div[3]/form/div/div[9]/div/div[1]/span/span[1]/span/ul/li/input")
+                set_box.send_keys(str(mtg_cards[card][0]['Set']))
+                set_box.send_keys(Keys.DOWN)
+                set_box.send_keys(u'\ue007')
+                search_button = driver.find_element_by_xpath("//button[@class='button-n submit-n']")
+                search_button.click()
+                url = driver.current_url
+                htmldata = getdata(url)  
+                soup = BeautifulSoup(htmldata, 'html.parser')
+                
+                # Retrieve card info
+                results = soup.find_all('div', class_='card-profile')
+                for result in results:
+                    for item in soup.find_all('img'): 
+                        image_url = item['src']
+                    mtg_card_name = result.find('h1', class_='card-text-title').text.strip().split('\n')[0]
+                    mtg_card_set = result.find('span', class_='prints-current-set-name').text.split('\n')[1].strip()
+                    mtg_card = {'cube_name':cube_name,
+                                'card_image_url':image_url,
+                                'mtg_card_name':mtg_card_name,
+                                'mtg_card_set':mtg_card_set,
+                                "owner's_email":email}
+                    
+                    # Insert Card Data into mongoDB
+                    db.user_records.update({ 'email': email }, { '$push': { 'Cubes' : mtg_card } })
+
+                    # collection.insert_one(mtg_card)
+                driver.quit()
+            #     This will output clickable image url
+            #     print(cards[card][1]['Image URL'])
+            # If a card is not found print ERROR msg and save card name to list of mtg cards not found
+            except:
+                print("ERROR")
+                print(card)
+                mtg_cards_not_captured.append(card)
+        return render_template('upload.html', data=mtg_cards_not_captured)
+    return render_template('upload.html')
 
 if __name__ == "__main__":
-  app.run(debug=True)
+  app.run(debug=False)
+
+
