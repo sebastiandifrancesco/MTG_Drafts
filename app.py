@@ -151,7 +151,6 @@ def upload():
 
         # Fill mtg_cards with names and sets
         mtg_cards = {}
-        mtg_cards_not_captured = {}
         for card in df_name["Name"]:
             mtg_cards[card] = []
         count = 0
@@ -202,9 +201,27 @@ def upload():
             except:
                 print("ERROR")
                 print(card)
-                mtg_cards_not_captured.append(card)
-        return render_template('upload.html', data=mtg_cards_not_captured)
+        # Convert entire collection to Pandas dataframe
+        cube = pd.DataFrame(list(records.find()))
+        cube_card_objects = cube.Cubes.all()
+        cube_card_objects_df = pd.DataFrame(cube_card_objects)
+        # Filter for only names and sets
+        df_names_sets = df[['Name','Set']]
+        cube_names = cube_card_objects_df[['mtg_card_name','mtg_card_set']]
+        # Combine data
+        merged_df = pd.merge(df_names_sets, cube_names, left_on='Name', right_on='mtg_card_name', how='outer')
+        # Find the rows with null values to see missing cards
+        null_data = merged_df[merged_df.isnull().any(axis=1)]
+        test_set = null_data[['Name']].dropna()
+        miss_indexes = test_set.index
+        miss_mtg_card_names = test_set.Name
+        miss_mtg_card_names_lst = miss_mtg_card_names.tolist()
+        miss_mtg_card_names_lst
+        return render_template('upload.html', addManually='Our algorithm was not able to get the info for these cards: ',
+                                              data=miss_mtg_card_names_lst
+                                              )
     return render_template('upload.html')
+
 
 if __name__ == "__main__":
   app.run(debug=False)
