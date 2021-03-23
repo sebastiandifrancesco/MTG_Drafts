@@ -10,16 +10,20 @@
 {% endif %}
 
 <form method="post" enctype="multipart/form-data">
+<!-- Form for inputting cube name -->
 <div class="form-group">
     <label for="Cubename">Cube name</label>
     <input name="cubename" class="form-control" id="inputCubeName" aria-describedby="cubeNameHelp" placeholder="Please enter your cube name">
+<!-- Form for inputting file -->
 </div>
     <input type="file" name="file">
     <input type="submit" value="Upload">
   </form> 
 
+<!-- Message declaring some cards are missing -->
 {{ addManually }}
-  
+
+<!-- Missing Cards -->
 {{ data }}
 
 {% endblock %}

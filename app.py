@@ -12,6 +12,7 @@ import requests
 import pymongo
 import os
 
+# This is for when deploying to Heroku
 # chrome_options = webdriver.ChromeOptions()
 # chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
 # chrome_options.add_argument("--headless")
@@ -21,13 +22,16 @@ import os
 
 #set app as a Flask instance 
 app = Flask(__name__)
+
+# This is for when deploying to Heroku
 # app.config.update(
 #     GOOGLE_CHROME_BIN = 
 #     CHROMEDRIVER_PATH = "/"
 # )
+
 #encryption relies on secret keys so they could be run
 app.secret_key = "testing"
-#connoct to your Mongo DB database
+#connect to your Mongo DB database
 client = pymongo.MongoClient("mongodb+srv://sebastiandifrancesco:badass88@cluster0.gnjhr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 
 #get the database name
@@ -39,7 +43,8 @@ def getdata(url):
     r = requests.get(url)  
     return r.text
 
-#assign URLs to have a particular route 
+#assign URLs to have a particular route
+# Index page/Registration page 
 @app.route("/", methods=['post', 'get'])
 def index():
     message = ''
@@ -79,7 +84,7 @@ def index():
     return render_template('index.html')
 
 
-
+# Login page
 @app.route("/login", methods=["POST", "GET"])
 def login():
     message = 'Please login to your account'
@@ -109,6 +114,7 @@ def login():
             return render_template('login.html', message=message)
     return render_template('login.html', message=message)
 
+# This is the account page
 @app.route('/logged_in')
 def logged_in():
     if "email" in session:
@@ -117,6 +123,7 @@ def logged_in():
     else:
         return redirect(url_for("login"))
 
+# Logout page
 @app.route("/logout", methods=["POST", "GET"])
 def logout():
     if "email" in session:
@@ -125,13 +132,14 @@ def logout():
     else:
         return render_template('index.html')
 
+# For uploading an excel file cube or set to the database
+# (columns must be called Name and Set and sets must be full set names with abbreviations in parantheses like they are on scryfall.com)
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     if request.method == 'POST' and "email" in session:
         print('Hello')
         email = session["email"]
         cube_name = request.form.get("cubename")
-        owners_email = email
         df = pd.read_csv(request.files.get('file'))
         print(df.head())
         # Tests for if file input was saved correctly to the df
@@ -143,7 +151,8 @@ def upload():
 
         # Define database and collection
         db = client.mtg_drafts
-        collection = db.user_records
+        myquery = {"email":email}
+        collection = db.user_records.find(myquery)
 
         # Read in DF and create two new dataframed one holding the card names and one holding the which set each card belongs to
         df_name = df[["Name"]]
@@ -202,7 +211,7 @@ def upload():
                 print("ERROR")
                 print(card)
         # Convert entire collection to Pandas dataframe
-        cube = pd.DataFrame(list(records.find()))
+        cube = pd.DataFrame(list(records.find(myquery)))
         cube_card_objects = cube.Cubes.all()
         cube_card_objects_df = pd.DataFrame(cube_card_objects)
         # Filter for only names and sets
@@ -217,11 +226,59 @@ def upload():
         miss_mtg_card_names = test_set.Name
         miss_mtg_card_names_lst = miss_mtg_card_names.tolist()
         miss_mtg_card_names_lst
-        return render_template('upload.html', addManually='Our algorithm was not able to get the info for these cards: ',
-                                              data=miss_mtg_card_names_lst
-                                              )
+        if len(miss_mtg_card_names_lst) > 0:
+            return render_template('manual_upload.html', addManually='Our algorithm was not able to get the info for these cards: ',
+                                                data=miss_mtg_card_names_lst,
+                                                addBelow = '. You can add the cards below by putting the cube name and the scryfall link to the card page with image url.'
+                                                )
+        else:
+            return render_template('upload.html')
     return render_template('upload.html')
 
+# For uploading an excel file cube or set to the database
+@app.route('/manual_upload', methods=['GET', 'POST'])
+def manual_upload():
+    if request.method == 'POST' and "email" in session:
+        email = session["email"]
+        cube_name = request.form.get("cubename")
+        url = request.form.get(cardlink)
+        # Initialize PyMongo to work with MongoDBs
+        conn = 'mongodb+srv://sebastiandifrancesco:badass88@cluster0.gnjhr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority'
+        client = pymongo.MongoClient(conn)
+
+        # Define database and collection
+        db = client.mtg_drafts
+        myquery = {"email":email}
+        collection = db.user_records.find(myquery)
+        
+        try:
+            # Navigates to the cards scryfall page using the Name and Set Name (must be identical to scryfall)
+            htmldata = getdata(url)  
+            soup = BeautifulSoup(htmldata, 'html.parser')
+                
+            # Retrieve card info
+            results = soup.find_all('div', class_='card-profile')
+            for result in results:
+                for item in soup.find_all('img'): 
+                    image_url = item['src']
+                mtg_card_name = result.find('h1', class_='card-text-title').text.strip().split('\n')[0]
+                mtg_card_set = result.find('span', class_='prints-current-set-name').text.split('\n')[1].strip()
+                mtg_card = {'cube_name':cube_name,
+                            'card_image_url':image_url,
+                            'mtg_card_name':mtg_card_name,
+                            'mtg_card_set':mtg_card_set,
+                            "owner's_email":email}
+                test.insert_one(mtg_card)
+            driver.quit()
+        # If a card is not found print ERROR msg and save card name to list of mtg cards not found
+        except:
+            print("ERROR")
+            print(card)
+        return render_template('manual_upload.html', addManually='Our algorithm was not able to get the info for these cards: ',
+                                                data=miss_mtg_card_names_lst,
+                                                addBelow = '. You can add the cards below by putting the cube name and the scryfall link to the card page with image url.'
+                                                )
+    return render_template('manual_upload.html')
 
 if __name__ == "__main__":
   app.run(debug=False)
