@@ -137,11 +137,9 @@ def logout():
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     if request.method == 'POST' and "email" in session:
-        print('Hello')
         email = session["email"]
         cube_name = request.form.get("cubename")
         df = pd.read_csv(request.files.get('file'))
-        print(df.head())
         # Tests for if file input was saved correctly to the df
         # return render_template('upload.html', data=cube_name)
 
@@ -225,12 +223,11 @@ def upload():
         miss_indexes = test_set.index
         miss_mtg_card_names = test_set.Name
         miss_mtg_card_names_lst = miss_mtg_card_names.tolist()
-        miss_mtg_card_names_lst
+        global miss_mtg_card_names_lst_glob 
+        miss_mtg_card_names_lst_glob = miss_mtg_card_names_lst
         if len(miss_mtg_card_names_lst) > 0:
-            return render_template('manual_upload.html', addManually='Our algorithm was not able to get the info for these cards: ',
-                                                data=miss_mtg_card_names_lst,
-                                                addBelow = '. You can add the cards below by putting the cube name and the scryfall link to the card page with image url.'
-                                                )
+            return redirect('http://127.0.0.1:5000/manual_upload')
+
         else:
             return render_template('upload.html')
     return render_template('upload.html')
@@ -238,10 +235,14 @@ def upload():
 # For uploading an excel file cube or set to the database
 @app.route('/manual_upload', methods=['GET', 'POST'])
 def manual_upload():
+    # if len(miss_mtg_card_names_lst_glob) != 0:
+    #     print(miss_mtg_card_names_lst_glob)
+    miss_mtg_card_names_lst = ''
     if request.method == 'POST' and "email" in session:
         email = session["email"]
         cube_name = request.form.get("cubename")
-        url = request.form.get(cardlink)
+        url = request.form.get("cardlink")
+        print(url)
         # Initialize PyMongo to work with MongoDBs
         conn = 'mongodb+srv://sebastiandifrancesco:badass88@cluster0.gnjhr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority'
         client = pymongo.MongoClient(conn)
@@ -255,7 +256,7 @@ def manual_upload():
             # Navigates to the cards scryfall page using the Name and Set Name (must be identical to scryfall)
             htmldata = getdata(url)  
             soup = BeautifulSoup(htmldata, 'html.parser')
-                
+            print(soup)    
             # Retrieve card info
             results = soup.find_all('div', class_='card-profile')
             for result in results:
@@ -268,17 +269,15 @@ def manual_upload():
                             'mtg_card_name':mtg_card_name,
                             'mtg_card_set':mtg_card_set,
                             "owner's_email":email}
-                test.insert_one(mtg_card)
-            driver.quit()
+                db.user_records.update({ 'email': email }, { '$push': { 'Cubes' : mtg_card } })
+                # test.insert_one(mtg_card)
         # If a card is not found print ERROR msg and save card name to list of mtg cards not found
         except:
+            miss_mtg_card_names_lst = 'error'
             print("ERROR")
-            print(card)
-        return render_template('manual_upload.html', addManually='Our algorithm was not able to get the info for these cards: ',
-                                                data=miss_mtg_card_names_lst,
-                                                addBelow = '. You can add the cards below by putting the cube name and the scryfall link to the card page with image url.'
-                                                )
-    return render_template('manual_upload.html')
+            # print(card)
+        return redirect('http://127.0.0.1:5000/manual_upload')
+    return redirect('http://127.0.0.1:5000/manual_upload')
 
 if __name__ == "__main__":
   app.run(debug=False)
