@@ -223,11 +223,10 @@ def upload():
         miss_indexes = test_set.index
         miss_mtg_card_names = test_set.Name
         miss_mtg_card_names_lst = miss_mtg_card_names.tolist()
-        global miss_mtg_card_names_lst_glob 
-        miss_mtg_card_names_lst_glob = miss_mtg_card_names_lst
+        # global miss_mtg_card_names_lst_glob 
+        # miss_mtg_card_names_lst_glob = miss_mtg_card_names_lst
         if len(miss_mtg_card_names_lst) > 0:
             return redirect('http://127.0.0.1:5000/manual_upload')
-
         else:
             return render_template('upload.html')
     return render_template('upload.html')
@@ -237,7 +236,9 @@ def upload():
 def manual_upload():
     # if len(miss_mtg_card_names_lst_glob) != 0:
     #     print(miss_mtg_card_names_lst_glob)
-    miss_mtg_card_names_lst = ''
+    # miss_mtg_card_names_lst = ''
+    # return render_template("manual_upload.html")
+    print('Hello')
     if request.method == 'POST' and "email" in session:
         email = session["email"]
         cube_name = request.form.get("cubename")
@@ -276,8 +277,10 @@ def manual_upload():
             miss_mtg_card_names_lst = 'error'
             print("ERROR")
             # print(card)
-        return redirect('http://127.0.0.1:5000/manual_upload')
-    return redirect('http://127.0.0.1:5000/manual_upload')
+        return render_template('manual_upload.html')
+        # return redirect('http://127.0.0.1:5000/manual_upload')
+    return render_template('manual_upload.html')
+    # return redirect('http://127.0.0.1:5000/manual_upload')
 
 if __name__ == "__main__":
   app.run(debug=False)
