@@ -282,6 +282,41 @@ def manual_upload():
     return render_template('manual_upload.html')
     # return redirect('http://127.0.0.1:5000/manual_upload')
 
+@app.route('/draft', methods=['GET', 'POST'])
+def draft():
+    if request.method == 'POST' and "email" in session:
+        email = session["email"]
+        cube_name = request.form.get("cubename")
+        players_numbers = request.form.get("namesnumbers")
+        draft_name = request.form.get("draftname")
+
+        # Initialize PyMongo to work with MongoDBs
+        conn = 'mongodb+srv://sebastiandifrancesco:badass88@cluster0.gnjhr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority'
+        client = pymongo.MongoClient(conn)
+
+        # Define database and collection
+        db = client.mtg_drafts
+        myquery = {"email":email}
+        collection = db.user_records.find(myquery)
+
+        cards = []
+        # Use cube_name to pull in info for card objects (only pull these values mtg_card_name, mtg_image_url)
+        # Add to all the card objects {clicked:False}
+        # Save them into cards
+
+
+
+        draft = {'cube_name':cube_name,
+                 "owner's_email":email,
+                 'players_numbers':players_numbers,
+                 'draft_name':draft_name,
+                 'Cube':cards,
+                 'player_decks':[],
+                 'pack':[]}
+
+    return render_template('draft.html')
+
+
 if __name__ == "__main__":
   app.run(debug=False)
 
